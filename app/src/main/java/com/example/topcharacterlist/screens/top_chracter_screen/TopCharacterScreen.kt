@@ -1,5 +1,6 @@
 package com.example.topcharacterlist.screens
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,13 +28,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.example.topcharacterlist.data.remote.responses.Data
 import com.example.topcharacterlist.screens.top_chracter_screen.TopCharacterViewModel
 import com.google.accompanist.coil.CoilImage
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 @Composable
 fun TopCharacterScreen( // screen that is displayed contains the Entries and search bar
@@ -41,7 +45,7 @@ fun TopCharacterScreen( // screen that is displayed contains the Entries and sea
     viewModel: TopCharacterViewModel = hiltViewModel()
 ) {
     Surface(
-        color = MaterialTheme.colors.background, //sets full screens bg color
+        color = MaterialTheme.colors.surface, //sets full screens bg color
         modifier = Modifier.fillMaxSize()
     ) {
         Column {
@@ -136,7 +140,7 @@ fun CharacterList( // contains all of the pokemon Cards
         }
         items(itemCount) { //check is we are not still waiting on prev response before
             //calling more -> the page wouldn't be updated yet when called again
-            if(it >= itemCount - 1 && !endReached && !isLoading) {
+            if(it >= itemCount - 1  && !isLoading && !endReached) {
                 LaunchedEffect(key1 = true){
                     viewModel.loadTopCharacterList()
                 }
@@ -163,17 +167,22 @@ fun CharacterList( // contains all of the pokemon Cards
 }
 
 @Composable
-fun CharacterEntry( // contains singular items
+fun CharacterEntry( // contains singular pokemon item
     entry: Data,
     navController: NavController,
     modifier: Modifier = Modifier,
-    viewModel:TopCharacterViewModel = hiltViewModel()
+    viewModel: TopCharacterViewModel = hiltViewModel()
 ) {
     val defaultDominantColor = MaterialTheme.colors.surface
     var dominantColor by remember {
         mutableStateOf(defaultDominantColor)
     }
-
+    val context = LocalContext.current
+    LaunchedEffect(key1 = true){
+        viewModel.fetchColors(entry.images.webp.image_url, context) {
+            dominantColor = it
+        }
+    }
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -188,22 +197,24 @@ fun CharacterEntry( // contains singular items
                     )
                 )
             )
-//            .clickable {
-//                navController.navigate(
-//                    //navv arg TODO
-//                )
-//            }
+            .clickable {
+                navController.navigate(
+                    "pokemon_detail_screen/${dominantColor.toArgb()}/${entry.name}"
+                )
+            }
     ) {
         Column {
-            AsyncImage(  //gets dominant color from fun defined in the view model
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(entry.images.jpg.image_url)
-                    .crossfade(true)
-                    .build(),
+            AsyncImage(
+                //gets dominant color from fun defined in the view model
+                 ImageRequest.Builder(LocalContext.current)
+                     .data(entry.images.webp.image_url)
+                     .allowConversionToBitmap(true)
+                     .allowRgb565(true)
+                     .build(),
+                contentDescription = entry.name,
                 modifier = Modifier
                     .size(120.dp)
-                    .align(Alignment.CenterHorizontally),
-                contentDescription = null
+                    .align(Alignment.CenterHorizontally)
             )
             Text(
                 text = entry.name,
@@ -214,6 +225,7 @@ fun CharacterEntry( // contains singular items
         }
     }
 }
+
 
 @Composable
 fun CharacterRow( // positions the items next to each other
